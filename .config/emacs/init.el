@@ -69,9 +69,12 @@
 (setq inhibit-startup-message t)
 (setq inhibit-compacting-font-caches t)
 
+;; Customize the scratch buffer message
+(setq initial-scratch-message ";; Scratch Buffer Go Brrr")
+
 ;; Display line numbers
-(global-display-line-numbers-mode)
-(setq display-line-numbers 'relative)
+;; (global-display-line-numbers-mode)
+;; (setq display-line-numbers 'relative)
 
 ;; Custom shenanigans
 (setq custom-file (locate-user-emacs-file "custom.el"))
@@ -107,16 +110,49 @@
 ;; Flash the modeline instead of beeping
 (setq visible-bell nil
       ring-bell-function 'flash-mode-line)
+
 (defun flash-mode-line ()
   "Flash the modeline."
   (invert-face 'mode-line)
   (run-with-timer 0.1 nil #'invert-face 'mode-line))
 
+;; Misc
+(use-package emacs
+  :init
+  ;; Vertico commands are hidden in normal buffers.
+  (setq read-extended-command-predicate
+        #'command-completion-default-include-p)
+  ;; Enable recursive minibuffers
+  (setq enable-recursive-minibuffers t))
+
+;; Delimeters for the lazy
+(defvar whitelisted-electic-pair-modes '(prog-mode))
+
+(defun inhibit-electric-pair-mode (_)
+  "Leave me alone, argument CHAR is not used."
+  (not (member major-mode whitelisted-electic-pair-modes)))
+
+(use-package electric
+  :config
+  (defvar electric-pair-inhibit-predicate #'inhibit-electric-pair-mode)
+  (electric-pair-mode 1))
+
+;; Free persistent undo history
+(use-package undo-tree
+  :init
+  (setq undo-tree-auto-save-history t)
+  (setq undo-tree-history-directory-alist '(("." . "~/.config/emacs/undo")))
+  :config
+  (global-undo-tree-mode))
+
 ;; Friendship with Vi ended; now Meow is my best friend
 (use-package meow
   :config
+  (declare-function meow-motion-overwrite-define-key "meow")
+  (declare-function meow-leader-define-key           "meow")
+  (declare-function meow-normal-define-key           "meow")
   (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
-  ;; How is this not recommended?
+  ;; Why is this not recommended?
   (setq meow-use-clipboard t)
   (meow-motion-overwrite-define-key
    '("j" . meow-next)
@@ -138,17 +174,33 @@
    '("9"   . meow-digit-argument)
    '("0"   . meow-digit-argument)
    ;; Quick launchers
+   '("K"   . meow-kmacro-lines)
+   '("u"   . undo-tree-redo)
    '("v"   . magit-status)
-   '("r"   . counsel-rg)
-   '("e"   . flyspell-correct-wrapper)
+   '("w"   . other-window)
+   '("W"   . delete-other-windows)
+   '("e"   . consult-flycheck)
+   '("E"   . flyspell-correct-wrapper)
    '("a"   . org-agenda)
-   '("i"   . erc-connect)
-   '("SPC" . reload-init-file)
-   ;; Shortcuts
-   '("b"   . "C-x C-b")
-   '("f"   . "C-x C-f")
-   '("s"   . "C-x C-s")
-   '("d"   . "C-x x g"))
+   '("G"   . consult-ripgrep)
+   '("i"   . consult-imenu)
+   '("I"   . consult-imenu-multi)
+   '("b"   . consult-buffer)
+   '("B"   . consult-buffer-other-window)
+   '("o"   . consult-outline)
+   '("t"   . consult-theme)
+   '("l"   . consult-line)
+   '("p"   . consult-yank-pop)
+   '("r"   . consult-register)
+   '("R"   . consult-register-store)
+   '("M"   . consult-bookmark)
+   '("k"   . kill-buffer)
+   '("f"   . find-file)
+   '("F"   . find-file-other-window)
+   '("s"   . save-buffer)
+   '("S"   . save-some-buffers)
+   '("d"   . consult-dir)
+   '("SPC" . reload-init-file))
   (meow-normal-define-key
    '("0"  . meow-expand-0)
    '("9"  . meow-expand-9)
@@ -161,7 +213,7 @@
    '("2"  . meow-expand-2)
    '("1"  . meow-expand-1)
    '("-"  . negative-argument)
-   '(";" . meow-reverse)
+   '(";"  . meow-reverse)
    '(","  . meow-inner-of-thing)
    '("."  . meow-bounds-of-thing)
    '("["  . meow-beginning-of-thing)
@@ -204,13 +256,11 @@
    '("w"  . meow-mark-word)
    '("W"  . meow-mark-symbol)
    '("x"  . meow-line)
-   '("X"  . meow-goto-line)
+   '("X"  . consult-goto-line)
    '("y"  . meow-save)
    '("Y"  . meow-sync-grab)
    '("z"  . meow-pop-selection)
    '("'"  . repeat)
-   '("/"  . comment-dwim)
-   '("\\" . undo-redo)
    '("<escape>" . ignore))
 
   (meow-global-mode 1))
@@ -257,28 +307,151 @@
   :config
   (doom-modeline-mode 1))
 
+;; All the themes!
+(use-package ef-themes)
+
+;; Vertico
+(use-package vertico
+  :init
+  (vertico-mode)
+  (vertico-mouse-mode)
+  ;; Different scroll margin
+  (setq vertico-scroll-margin 8)
+  ;; Show more candidates
+  (setq vertico-count 16)
+  ;; Grow and shrink the Vertico minibuffer
+  (setq vertico-resize nil)
+  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
+  (setq vertico-cycle t)
+  :config
+  (define-key vertico-map (kbd "?") #'which-key-show-major-mode)
+  (define-key vertico-map (kbd "M-RET") #'minibuffer-force-complete-and-exit)
+  (define-key vertico-map (kbd "C-q") #'vertico-quick-insert))
+
+;; Persist history over Emacs restarts. Vertico sorts by history position.
+(use-package savehist
+  :init
+  (savehist-mode))
+
+;; Use the Orderless completion style
+(use-package orderless
+  :init
+  ;; Configure a custom style dispatcher (see the Consult wiki)
+  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
+  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+
+;; Enable rich annotations using the Marginalia package
+(use-package marginalia
+  ;; The :init configuration is always executed (Not lazy!)
+  :init
+  ;; Must be in the :init section of use-package such that the mode gets
+  ;; enabled right away. Note that this forces loading the package.
+  (marginalia-mode))
+
+;; Consult, completion framework
+(use-package consult
+  ;; Enable automatic preview at point in the *Completions* buffer. This is
+  ;; relevant when you use the default completion UI.
+  :hook (completion-list-mode . consult-preview-at-point-mode)
+  ;; The :init configuration is always executed (Not lazy)
+  :init
+  ;; Optionally configure the register formatting. This improves the register
+  ;; preview for `consult-register', `consult-register-load',
+  ;; `consult-register-store' and the Emacs built-ins.
+  (setq register-preview-delay 0.5
+        register-preview-function #'consult-register-format)
+  ;; Optionally tweak the register preview window.
+  ;; This adds thin lines, sorting and hides the mode line of the window.
+  (advice-add #'register-preview :override #'consult-register-window)
+  ;; Use Consult to select xref locations with preview
+  (defvar xref-show-xrefs-function #'consult-xref)
+  (defvar xref-show-definitions-function #'consult-xref))
+
+;; Switch directories
+(use-package consult-dir)
+
+;; Embark
+(use-package embark
+  :bind
+  (("C-." . embark-act)         ;; pick some comfortable binding
+   ("C-;" . embark-dwim)        ;; good alternative: M-.
+   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+  :init
+  ;; Optionally replace the key help with a completing-read interface
+  (setq prefix-help-command #'embark-prefix-help-command)
+  ;; I cannot believe this is not the default!
+  (setq embark-verbose-indicator-display-action
+        '(display-buffer-at-bottom
+          (window-height . fit-window-to-buffer)))
+  :config
+  ;; Hide the mode line of the Embark live/completions buffers
+  (add-to-list 'display-buffer-alist
+               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
+                 nil
+                 (window-parameters (mode-line-format . none)))))
+
+;; Consult users will also want the embark-consult package.
+(use-package embark-consult
+  :after (embark consult)
+  :demand t ; only necessary if you have the hook below
+  ;; if you want to have consult previews as you move around an
+  ;; auto-updating embark collect buffer
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+
+;; Pretty TODO?
+(use-package hl-todo
+  :hook (prog-mode . hl-todo-mode))
+
 ;; Modern on-the-fly syntax checking
 (use-package flycheck
   :init (global-flycheck-mode))
 
-;; Complete Anything
-(use-package company
-  :config
-  (setq company-format-margin-function nil))
+(use-package consult-flycheck)
 
-;; Counsel, Ivy and Swiper
-(use-package counsel
-  :config
-  (setq ivy-use-virtual-buffers t)
-  :bind
-  ("M-x"     . 'counsel-M-x)
-  :init
-  (ivy-mode 1))
+;; Completion Overlay Region Function
+(use-package corfu
+  ;; Optional customizations
+  ;; :custom
+  ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
+  ;; (corfu-auto t)                 ;; Enable auto completion
+  ;; (corfu-separator ?\s)          ;; Orderless field separator
+  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
+  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
+  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
+  ;; (corfu-preselect-first nil)    ;; Disable candidate preselection
+  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
+  ;; (corfu-echo-documentation nil) ;; Disable documentation in the echo area
+  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
 
-(use-package ivy-rich
-  :after counsel
+  ;; Enable Corfu only for certain modes.
+  ;; :hook ((prog-mode . corfu-mode)
+  ;;        (shell-mode . corfu-mode)
+  ;;        (eshell-mode . corfu-mode))
+
+  ;; Recommended: Enable Corfu globally.
+  ;; This is recommended since Dabbrev can be used globally (M-/).
+  ;; See also `corfu-excluded-modes'.
   :init
-  (ivy-rich-mode 1))
+  (global-corfu-mode))
+
+;; A few more useful configurations...
+(use-package emacs
+  :init
+  ;; TAB cycle if there are only few candidates
+  (setq completion-cycle-threshold 3)
+
+  ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+  ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+  ;; (setq read-extended-command-predicate
+  ;;       #'command-completion-default-include-p)
+
+  ;; Enable indentation+completion using the TAB key.
+  ;; `completion-at-point' is often bound to M-TAB.
+  (setq tab-always-indent 'complete))
 
 ;; Which Key?
 (use-package which-key
@@ -299,22 +472,17 @@
          (c++-mode    . lsp)
          (lsp-mode    . lsp-enable-which-key-integration))
   :commands lsp)
-(use-package lsp-ui
-  :after lsp-mode
-  :init
-  (setq lsp-ui-doc-show-with-cursor nil)
-  :commands lsp-ui-mode)
-(use-package lsp-ivy
-  :after lsp-mode
-  :bind
-  ("C-c C-l C-s" . lsp-ivy-workspace-symbol)
-  :commands lsp-ivy-workspace-symbol)
+
+(use-package lsp-ui)
 
 ;; Rust
 (use-package rust-mode
   :defer t
   :config
   (setq rust-format-on-save t))
+
+(use-package ob-rust
+  :defer t)
 
 ;; Markdown
 (use-package markdown-mode
@@ -323,6 +491,7 @@
 ;; Org
 (use-package org
   :init
+  (declare-function org-todo "org")
   (setq org-agenda-files '("~/Dropbox/Organic")
         org-startup-indented t
         org-hide-emphasis-markers t
@@ -330,16 +499,24 @@
         org-hide-leading-stars t
         org-pretty-entities t
         org-odd-levels-only t
-        org-todo-keywords '((sequence "SOMEDAY" "TODO" "NEXT" "ON-HOLD" "IN-PROGRESS" "|" "DONE" "CANCELED"))
+        org-todo-keywords '((sequence "SOMEDAY" "TODO" "IN-PROGRESS" "ON-HOLD" "|" "DONE" "CANCELED"))
         org-log-done 'time)
+  (defun org-todo-done ()
+    "Close a TODO item with a timestamp."
+    (interactive)
+    (org-todo "DONE"))
+  :bind ("C-c M-t" . org-todo-done)
   :hook (org-mode . auto-fill-mode)
   :config
   (visual-line-mode))
 
 (use-package org-superstar
   :after org
-  :config
   :hook (org-mode . org-superstar-mode))
+
+;; Seriously?
+(use-package mixed-pitch
+  :hook (text-mode . mixed-pitch-mode))
 
 ;; Zig
 (use-package zig-mode
@@ -361,22 +538,30 @@
 (use-package fsharp-mode
   :defer t)
 
-;; Ace window
-(use-package ace-window
-  :bind
-  ("M-o" . ace-window))
+;; GLSL
+(use-package glsl-mode
+  :defer t)
 
-(use-package lispy
-  :hook (emacs-lisp-mode . (lambda () (lispy-mode 1))))
+;; Spelling
+
+(use-package ispell
+  :init
+  ;; Configure `LANG`, otherwise ispell.el cannot find a 'default
+  ;; dictionary' even though multiple dictionaries will be configured
+  ;; in next line.
+  (setenv "LANG" "en_US.UTF-8")
+  (setq ispell-program-name "hunspell")
+  (setq ispell-dictionary "fr_FR,en_US")
+  ;; ispell-set-spellchecker-params has to be called
+  ;; before ispell-hunspell-add-multi-dic will work
+  (ispell-set-spellchecker-params)
+  (ispell-hunspell-add-multi-dic "fr_FR,en_US"))
 
 ;; Flyspell
 (use-package flyspell-correct
   :hook ((org-mode      . flyspell-mode)
-         ;;(prog-mode     . flyspell-mode)
+         (prog-mode     . flyspell-prog-mode)
          (markdown-mode . flyspell-mode)))
-
-(use-package flyspell-correct-ivy
-  :after flyspell-correct)
 
 ;; ERC
 (defvar erc-prompt (lambda () (concat "[" (buffer-name) "]")))
@@ -402,9 +587,4 @@
 (set-keyboard-coding-system 'utf-8)
 
 ;; Other keybindings
-(global-set-key (kbd "C-s") 'swiper)
-(global-set-key (kbd "C-r") 'swiper-backward)
-(global-set-key (kbd "C-x C-b") 'switch-to-buffer)
-(global-set-key (kbd "C-x b") 'list-buffers)
-
 ;;; init.el ends here
