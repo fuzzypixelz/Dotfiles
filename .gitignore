@@ -1,0 +1,16 @@
+# ~/.config is a mess, so we might as well ignore everything except for what we need
+/*
+!.gitignore
+!README.md
+!LICENSE
+**/.DS_Store
+
+# .config
+!config/
+config/*
+
+## Emacs
+!.config/emacs/
+!.config/emacs/*
+!.config/emacs/init.el
+!.cofnig/emacs/peace-theme.el

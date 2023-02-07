@@ -1,6 +1,6 @@
 ;;; init.el --- fuzzypixelz's Emacs Configuration  -*- lexical-binding: t; -*-
 
-;; Copyright (c) 2022 Mahmoud Mazouz
+;; Copyright (c) 2023 Mahmoud Mazouz
 ;;
 ;; Permission is hereby granted, free of charge, to any person obtaining a copy
 ;; of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,10 @@
 ;; Uncomment this to profile start-up
 ;; (setq use-package-compute-statistics t)
 
+;; Performance
+(setq gc-cons-threshold (* 100 1000 1000))
+(setq read-process-output-max (* 1024 1024))
+
 ;; MELPA
 (require 'package)
 (setq package-archives
@@ -41,40 +45,29 @@
         ("GNU ELPA"     . 0)))
 (package-initialize)
 
-;; Reloading
-(defun reload-init-file ()
-  "Reload init.el without restarting Emacs."
-  (interactive)
-  (load user-init-file))
-
-;; Keep my text compact and tidy
-(setq-default fill-column 80)
-
-;; Performance
-(setq gc-cons-threshold (* 100 1000 1000))
-(setq read-process-output-max (* 1024 1024))
-
 ;; Go away
 (defalias 'yes-or-no-p 'y-or-n-p)
 
 ;; Set user info
 (setq user-full-name    "Mahmoud Mazouz"
-      user-mail-address "mazouz.mahmoud@outlook.com")
+      user-mail-address "hello@fuzzypixelz.com")
 
 ;; Remove UI cruft
-(menu-bar-mode -1)
+(menu-bar-mode 1)
+(context-menu-mode 1)
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
+(tooltip-mode -1)
 (setq inhibit-splash-screen t)
 (setq inhibit-startup-message t)
 (setq inhibit-compacting-font-caches t)
+(pixel-scroll-precision-mode)
+
+;; Keep my text compact and tidy
+(setq-default fill-column 80)
 
 ;; Customize the scratch buffer message
 (setq initial-scratch-message ";; Scratch Buffer Go Brrr")
-
-;; Display line numbers
-;; (global-display-line-numbers-mode)
-;; (setq display-line-numbers 'relative)
 
 ;; Custom shenanigans
 (setq custom-file (locate-user-emacs-file "custom.el"))
@@ -90,6 +83,20 @@
 (setq use-package-always-ensure t)
 (setq use-package-verbose t)
 
+(use-package diredfl
+  :config
+  (diredfl-global-mode))
+
+(use-package move-text
+  :config
+  (move-text-default-bindings))
+
+;; Display line numbers
+(use-package display-line-numbers
+  :config
+  (setq display-line-numbers 'relative)
+  :hook prog-mode)
+
 ;; Save backup files in the system's temp dir
 (setq backup-directory-alist
       `((".*" . ,temporary-file-directory)))
@@ -104,8 +111,10 @@
 (setq-default indent-tabs-mode nil)
 
 ;; Set the theme
-(require-theme 'peace-theme)
-(load-theme 'peace t)
+;; (require-theme 'peace-theme)
+;; (load-theme 'peace t)
+(add-to-list 'default-frame-alist
+             '(font . "Iosevka-14"))
 
 ;; Flash the modeline instead of beeping
 (setq visible-bell nil
@@ -116,26 +125,12 @@
   (invert-face 'mode-line)
   (run-with-timer 0.1 nil #'invert-face 'mode-line))
 
-;; Misc
-(use-package emacs
-  :init
-  ;; Vertico commands are hidden in normal buffers.
-  (setq read-extended-command-predicate
-        #'command-completion-default-include-p)
-  ;; Enable recursive minibuffers
-  (setq enable-recursive-minibuffers t))
-
 ;; Delimeters for the lazy
 (defvar whitelisted-electic-pair-modes '(prog-mode))
 
 (defun inhibit-electric-pair-mode (_)
   "Leave me alone, argument CHAR is not used."
   (not (member major-mode whitelisted-electic-pair-modes)))
-
-(use-package electric
-  :config
-  (defvar electric-pair-inhibit-predicate #'inhibit-electric-pair-mode)
-  (electric-pair-mode 1))
 
 ;; Free persistent undo history
 (use-package undo-tree
@@ -145,126 +140,6 @@
   :config
   (global-undo-tree-mode))
 
-;; Friendship with Vi ended; now Meow is my best friend
-(use-package meow
-  :config
-  (declare-function meow-motion-overwrite-define-key "meow")
-  (declare-function meow-leader-define-key           "meow")
-  (declare-function meow-normal-define-key           "meow")
-  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
-  ;; Why is this not recommended?
-  (setq meow-use-clipboard t)
-  (meow-motion-overwrite-define-key
-   '("j" . meow-next)
-   '("k" . meow-prev)
-   '("<escape>" . ignore))
-  (meow-leader-define-key
-   ;; SPC j/k will run the original command in MOTION state.
-   '("j" . "H-j")
-   '("k" . "H-k")
-   ;; Use SPC (0-9) for digit arguments.
-   '("1"   . meow-digit-argument)
-   '("2"   . meow-digit-argument)
-   '("3"   . meow-digit-argument)
-   '("4"   . meow-digit-argument)
-   '("5"   . meow-digit-argument)
-   '("6"   . meow-digit-argument)
-   '("7"   . meow-digit-argument)
-   '("8"   . meow-digit-argument)
-   '("9"   . meow-digit-argument)
-   '("0"   . meow-digit-argument)
-   ;; Quick launchers
-   '("K"   . meow-kmacro-lines)
-   '("u"   . undo-tree-redo)
-   '("v"   . magit-status)
-   '("w"   . other-window)
-   '("W"   . delete-other-windows)
-   '("e"   . consult-flycheck)
-   '("E"   . flyspell-correct-wrapper)
-   '("a"   . org-agenda)
-   '("G"   . consult-ripgrep)
-   '("i"   . consult-imenu)
-   '("I"   . consult-imenu-multi)
-   '("b"   . consult-buffer)
-   '("B"   . consult-buffer-other-window)
-   '("o"   . consult-outline)
-   '("t"   . consult-theme)
-   '("l"   . consult-line)
-   '("p"   . consult-yank-pop)
-   '("r"   . consult-register)
-   '("R"   . consult-register-store)
-   '("M"   . consult-bookmark)
-   '("k"   . kill-buffer)
-   '("f"   . find-file)
-   '("F"   . find-file-other-window)
-   '("s"   . save-buffer)
-   '("S"   . save-some-buffers)
-   '("d"   . consult-dir)
-   '("SPC" . reload-init-file))
-  (meow-normal-define-key
-   '("0"  . meow-expand-0)
-   '("9"  . meow-expand-9)
-   '("8"  . meow-expand-8)
-   '("7"  . meow-expand-7)
-   '("6"  . meow-expand-6)
-   '("5"  . meow-expand-5)
-   '("4"  . meow-expand-4)
-   '("3"  . meow-expand-3)
-   '("2"  . meow-expand-2)
-   '("1"  . meow-expand-1)
-   '("-"  . negative-argument)
-   '(";"  . meow-reverse)
-   '(","  . meow-inner-of-thing)
-   '("."  . meow-bounds-of-thing)
-   '("["  . meow-beginning-of-thing)
-   '("]"  . meow-end-of-thing)
-   '("a"  . meow-append)
-   '("A"  . meow-open-below)
-   '("b"  . meow-back-word)
-   '("B"  . meow-back-symbol)
-   '("c"  . meow-change)
-   '("d"  . meow-delete)
-   '("D"  . meow-backward-delete)
-   '("e"  . meow-next-word)
-   '("E"  . meow-next-symbol)
-   '("f"  . meow-find)
-   '("g"  . meow-cancel-selection)
-   '("G"  . meow-grab)
-   '("h"  . meow-left)
-   '("H"  . meow-left-expand)
-   '("i"  . meow-insert)
-   '("I"  . meow-open-above)
-   '("j"  . meow-next)
-   '("J"  . meow-next-expand)
-   '("k"  . meow-prev)
-   '("K"  . meow-prev-expand)
-   '("l"  . meow-right)
-   '("L"  . meow-right-expand)
-   '("m"  . meow-join)
-   '("n"  . meow-search)
-   '("o"  . meow-block)
-   '("O"  . meow-to-block)
-   '("p"  . meow-yank)
-   '("q"  . meow-quit)
-   '("r"  . meow-replace)
-   '("R"  . meow-swap-grab)
-   '("s"  . meow-kill)
-   '("t"  . meow-till)
-   '("u"  . meow-undo)
-   '("U"  . meow-undo-in-selection)
-   '("v"  . meow-visit)
-   '("w"  . meow-mark-word)
-   '("W"  . meow-mark-symbol)
-   '("x"  . meow-line)
-   '("X"  . consult-goto-line)
-   '("y"  . meow-save)
-   '("Y"  . meow-sync-grab)
-   '("z"  . meow-pop-selection)
-   '("'"  . repeat)
-   '("<escape>" . ignore))
-
-  (meow-global-mode 1))
-
 ;; Display ^L page breaks as tidy horizontal lines
 (use-package page-break-lines
   :config
@@ -273,7 +148,9 @@
 ;; Manage and navigate projects in Emacs easily
 (use-package projectile
   :config
-  (projectile-mode 1))
+  (projectile-mode 1)
+  :bind
+  (:map projectile-mode-map ("C-x p" . projectile-command-map)))
 
 ;; A better *help* buffer
 (use-package helpful
@@ -302,8 +179,6 @@
 
 ;; Steal DOOM's modeline
 (use-package doom-modeline
-  :init
-  (setq doom-modeline-height 30)
   :config
   (doom-modeline-mode 1))
 
@@ -312,21 +187,9 @@
 
 ;; Vertico
 (use-package vertico
-  :init
-  (vertico-mode)
-  (vertico-mouse-mode)
-  ;; Different scroll margin
-  (setq vertico-scroll-margin 8)
-  ;; Show more candidates
-  (setq vertico-count 16)
-  ;; Grow and shrink the Vertico minibuffer
-  (setq vertico-resize nil)
-  ;; Optionally enable cycling for `vertico-next' and `vertico-previous'.
-  (setq vertico-cycle t)
   :config
-  (define-key vertico-map (kbd "?") #'which-key-show-major-mode)
-  (define-key vertico-map (kbd "M-RET") #'minibuffer-force-complete-and-exit)
-  (define-key vertico-map (kbd "C-q") #'vertico-quick-insert))
+  (vertico-mode)
+  (vertico-mouse-mode))
 
 ;; Persist history over Emacs restarts. Vertico sorts by history position.
 (use-package savehist
@@ -335,72 +198,97 @@
 
 ;; Use the Orderless completion style
 (use-package orderless
-  :init
-  ;; Configure a custom style dispatcher (see the Consult wiki)
-  ;; (setq orderless-style-dispatchers '(+orderless-dispatch)
-  ;;       orderless-component-separator #'orderless-escapable-split-on-space)
-  (setq completion-styles '(orderless basic)
-        completion-category-defaults nil
-        completion-category-overrides '((file (styles partial-completion)))))
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
 
 ;; Enable rich annotations using the Marginalia package
 (use-package marginalia
-  ;; The :init configuration is always executed (Not lazy!)
   :init
-  ;; Must be in the :init section of use-package such that the mode gets
-  ;; enabled right away. Note that this forces loading the package.
   (marginalia-mode))
 
 ;; Consult, completion framework
 (use-package consult
-  ;; Enable automatic preview at point in the *Completions* buffer. This is
-  ;; relevant when you use the default completion UI.
-  :hook (completion-list-mode . consult-preview-at-point-mode)
-  ;; The :init configuration is always executed (Not lazy)
-  :init
-  ;; Optionally configure the register formatting. This improves the register
-  ;; preview for `consult-register', `consult-register-load',
-  ;; `consult-register-store' and the Emacs built-ins.
-  (setq register-preview-delay 0.5
-        register-preview-function #'consult-register-format)
-  ;; Optionally tweak the register preview window.
-  ;; This adds thin lines, sorting and hides the mode line of the window.
-  (advice-add #'register-preview :override #'consult-register-window)
-  ;; Use Consult to select xref locations with preview
-  (defvar xref-show-xrefs-function #'consult-xref)
-  (defvar xref-show-definitions-function #'consult-xref))
+  :bind (;; C-c bindings (mode-specific-map)
+         ("C-c h"     . consult-history)
+         ("C-c x"     . consult-mode-command)
+         ("C-c m"     . consult-kmacro)
+         ;; C-x bindings (ctl-x-map)
+         ("C-x M-:"   . consult-complex-command)     ;; orig. repeat-complex-command
+         ("C-x b"     . consult-buffer)              ;; orig. switch-to-buffer
+         ("C-x 4 b"   . consult-buffer-other-window) ;; orig. switch-to-buffer-other-window
+         ("C-x 5 b"   . consult-buffer-other-frame)  ;; orig. switch-to-buffer-other-frame
+         ("C-x r b"   . consult-bookmark)            ;; orig. bookmark-jump
+         ("C-x p b"   . consult-project-buffer)      ;; orig. project-switch-to-buffer
+         ;; Custom M-# bindings for fast register access
+         ("M-#"       . consult-register-load)
+         ("M-'"       . consult-register-store)      ;; orig. abbrev-prefix-mark (unrelated)
+         ("C-M-#"     . consult-register)
+         ;; Other custom bindings
+         ("M-y"       . consult-yank-pop)            ;; orig. yank-pop
+         ("<help> a"  . consult-apropos)             ;; orig. apropos-command
+         ;; M-g bindings (goto-map)
+         ("M-g e"     . consult-compile-error)
+         ("M-g f"     . consult-flycheck)            ;; Alternative: consult-flycheck
+         ("M-g g"     . consult-goto-line)           ;; orig. goto-line
+         ("M-g M-g"   . consult-goto-line)           ;; orig. goto-line
+         ("M-g o"     . consult-outline)             ;; Alternative: consult-org-heading
+         ("M-g m"     . consult-mark)
+         ("M-g k"     . consult-global-mark)
+         ("M-g i"     . consult-imenu)
+         ("M-g I"     . consult-imenu-multi)
+         ;; M-s bindings (search-map)
+         ("M-s d"     . consult-find)
+         ("M-s D"     . consult-locate)
+         ("M-s g"     . consult-grep)
+         ("M-s G"     . consult-git-grep)
+         ("M-s r"     . consult-ripgrep)
+         ("M-s l"     . consult-line)
+         ("M-s L"     . consult-line-multi)
+         ("M-s m"     . consult-multi-occur)
+         ("M-s k"     . consult-keep-lines)
+         ("M-s u"     . consult-focus-lines)
+         ;; Isearch integration
+         ("M-s e"     . consult-isearch-history)
+         :map isearch-mode-map
+         ("M-e"       . consult-isearch-history)     ;; orig. isearch-edit-string
+         ("M-l"       . consult-line)                ;; needed by consult-line to detect isearch
+         ("M-L"       . consult-line-multi)          ;; needed by consult-line to detect isearch
+         ;; Minibuffer history
+         :map minibuffer-local-map
+         ("M-s"       . consult-history)             ;; orig. next-matching-history-element
+         ("M-r"       . consult-history))            ;; orig. previous-matching-history-element
+  :config
+  (autoload 'projectile-project-root "projectile")
+  (setq consult-project-function (lambda (_) (with-no-warnings (projectile-project-root)))))
 
-;; Switch directories
-(use-package consult-dir)
+;; Autocomplete directories
+(use-package consult-dir
+  :bind (("C-x C-d" . consult-dir)
+         :map minibuffer-local-completion-map
+         ("C-x C-d" . consult-dir)
+         ("C-x C-j" . consult-dir-jump-file)))
 
 ;; Embark
 (use-package embark
   :bind
-  (("C-." . embark-act)         ;; pick some comfortable binding
-   ("C-;" . embark-dwim)        ;; good alternative: M-.
-   ("C-h B" . embark-bindings)) ;; alternative for `describe-bindings'
+  (("C-."   . embark-act)         ;; pick some comfortable binding
+   ("M-."   . embark-dwim)        ;; good alternative: M-.
+   ("C-h B" . embark-bindings))   ;; alternative for `describe-bindings'
   :init
-  ;; Optionally replace the key help with a completing-read interface
-  (setq prefix-help-command #'embark-prefix-help-command)
-  ;; I cannot believe this is not the default!
-  (setq embark-verbose-indicator-display-action
-        '(display-buffer-at-bottom
-          (window-height . fit-window-to-buffer)))
-  :config
-  ;; Hide the mode line of the Embark live/completions buffers
-  (add-to-list 'display-buffer-alist
-               '("\\`\\*Embark Collect \\(Live\\|Completions\\)\\*"
-                 nil
-                 (window-parameters (mode-line-format . none)))))
+  (setq prefix-help-command #'embark-prefix-help-command))
 
 ;; Consult users will also want the embark-consult package.
 (use-package embark-consult
   :after (embark consult)
-  :demand t ; only necessary if you have the hook below
-  ;; if you want to have consult previews as you move around an
-  ;; auto-updating embark collect buffer
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
+
+;; Completion Overlay Region Function
+(use-package corfu
+  :hook prog-mode
+  :config
+  (global-corfu-mode))
 
 ;; Pretty TODO?
 (use-package hl-todo
@@ -412,68 +300,10 @@
 
 (use-package consult-flycheck)
 
-;; Completion Overlay Region Function
-(use-package corfu
-  ;; Optional customizations
-  ;; :custom
-  ;; (corfu-cycle t)                ;; Enable cycling for `corfu-next/previous'
-  ;; (corfu-auto t)                 ;; Enable auto completion
-  ;; (corfu-separator ?\s)          ;; Orderless field separator
-  ;; (corfu-quit-at-boundary nil)   ;; Never quit at completion boundary
-  ;; (corfu-quit-no-match nil)      ;; Never quit, even if there is no match
-  ;; (corfu-preview-current nil)    ;; Disable current candidate preview
-  ;; (corfu-preselect-first nil)    ;; Disable candidate preselection
-  ;; (corfu-on-exact-match nil)     ;; Configure handling of exact matches
-  ;; (corfu-echo-documentation nil) ;; Disable documentation in the echo area
-  ;; (corfu-scroll-margin 5)        ;; Use scroll margin
-
-  ;; Enable Corfu only for certain modes.
-  ;; :hook ((prog-mode . corfu-mode)
-  ;;        (shell-mode . corfu-mode)
-  ;;        (eshell-mode . corfu-mode))
-
-  ;; Recommended: Enable Corfu globally.
-  ;; This is recommended since Dabbrev can be used globally (M-/).
-  ;; See also `corfu-excluded-modes'.
-  :init
-  (global-corfu-mode))
-
-;; A few more useful configurations...
-(use-package emacs
-  :init
-  ;; TAB cycle if there are only few candidates
-  (setq completion-cycle-threshold 3)
-
-  ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
-  ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
-  ;; (setq read-extended-command-predicate
-  ;;       #'command-completion-default-include-p)
-
-  ;; Enable indentation+completion using the TAB key.
-  ;; `completion-at-point' is often bound to M-TAB.
-  (setq tab-always-indent 'complete))
-
-;; Which Key?
-(use-package which-key
-  :config
-  (which-key-mode))
-
 ;; Magit
-(use-package magit)
-
-;; LSP
-(use-package lsp-mode
-  :init
-  (setq lsp-keymap-prefix "C-c C-l")
-  (setq lsp-headerline-breadcrumb-enable nil)
-  :hook ((rust-mode   . lsp)
-         (zig-mode    . lsp)
-         (c-mode      . lsp)
-         (c++-mode    . lsp)
-         (lsp-mode    . lsp-enable-which-key-integration))
-  :commands lsp)
-
-(use-package lsp-ui)
+(use-package magit
+  :bind
+  ("C-c g" . magit-status))
 
 ;; Rust
 (use-package rust-mode
@@ -481,70 +311,62 @@
   :config
   (setq rust-format-on-save t))
 
-(use-package ob-rust
-  :defer t)
-
 ;; Markdown
-(use-package markdown-mode
-  :hook (markdown-mode . auto-fill-mode))
+(use-package markdown-mode)
 
 ;; Org
 (use-package org
   :init
-  (declare-function org-todo "org")
-  (setq org-agenda-files '("~/Dropbox/Organic")
+  (setq org-agenda-files '("~/Nextcloud/Organism")
         org-startup-indented t
         org-hide-emphasis-markers t
         org-src-tab-acts-natively t
         org-hide-leading-stars t
         org-pretty-entities t
         org-odd-levels-only t
-        org-todo-keywords '((sequence "SOMEDAY" "TODO" "IN-PROGRESS" "ON-HOLD" "|" "DONE" "CANCELED"))
+        org-todo-keywords '((sequence "TODO" "NEXT" "PROG" "HOLD" "|" "DONE" "FAIL"))
         org-log-done 'time)
-  (defun org-todo-done ()
-    "Close a TODO item with a timestamp."
+  :config
+  (defun org-close-item ()
     (interactive)
     (org-todo "DONE"))
-  :bind ("C-c M-t" . org-todo-done)
-  :hook (org-mode . auto-fill-mode)
+  (visual-line-mode)
+  :bind ("C-c d" . org-close-item))
+
+(use-package org-modern
   :config
-  (visual-line-mode))
+  (global-org-modern-mode))
 
-(use-package org-superstar
-  :after org
-  :hook (org-mode . org-superstar-mode))
+(use-package org-super-agenda
+  :config
+  (org-super-agenda-mode))
 
-;; Seriously?
-(use-package mixed-pitch
-  :hook (text-mode . mixed-pitch-mode))
+(use-package org-journal
+  :init
+  ;; Change default prefix key; needs to be set before loading org-journal
+  (setq org-journal-prefix-key "C-c j")
+  (setq org-journal-file-type 'monthly)
+  (setq org-journal-encrypt-journal t)
+  ; NOTE: for some reason, `org-journal-new-entry` gets put under `C-c C-j` and
+  ; not `C-c j` so we might as well take advantage of that, eh?
+  :bind ("C-c j" . org-journal-new-scheduled-entry)
+  :config
+  (setq org-journal-enable-agenda-integration t)
+  (setq org-journal-dir "~/Nextcloud/Organism/Journal/"
+        org-journal-date-format "%A, %d %B %Y"))
 
 ;; Zig
-(use-package zig-mode
-  :defer t)
+(use-package zig-mode :defer t)
 
-;; Python
-(use-package python-mode
-  :defer t)
-(use-package lsp-pyright
-  :defer t
-  :hook (python-mode . (lambda ()
-                          (require 'lsp-pyright)
-                          (lsp))))
 ;; Nix
-(use-package nix-mode
-  :defer t)
+(use-package nix-mode :defer t)
 
-;; F#
-(use-package fsharp-mode
-  :defer t)
-
-;; GLSL
-(use-package glsl-mode
-  :defer t)
+;; fish
+(use-package fish-mode :defer t)
 
 ;; Spelling
-
 (use-package ispell
+  :commands (ispell-set-spellchecker-params ispell-hunspell-add-multi-dic)
   :init
   ;; Configure `LANG`, otherwise ispell.el cannot find a 'default
   ;; dictionary' even though multiple dictionaries will be configured
@@ -552,30 +374,40 @@
   (setenv "LANG" "en_US.UTF-8")
   (setq ispell-program-name "hunspell")
   (setq ispell-dictionary "fr_FR,en_US")
-  ;; ispell-set-spellchecker-params has to be called
+  :config
+  ;; `ispell-set-spellchecker-params` has to be called
   ;; before ispell-hunspell-add-multi-dic will work
   (ispell-set-spellchecker-params)
   (ispell-hunspell-add-multi-dic "fr_FR,en_US"))
 
 ;; Flyspell
-(use-package flyspell-correct
+(use-package flyspell
   :hook ((org-mode      . flyspell-mode)
          (prog-mode     . flyspell-prog-mode)
          (markdown-mode . flyspell-mode)))
 
-;; ERC
+;; The cooler flyspell
+(use-package flyspell-correct
+  :after flyspell
+  :bind (:map flyspell-mode-map ("C-;" . flyspell-correct-wrapper)))
+
+;; Expand region
+(use-package expand-region
+  :bind ("C-=" . er/expand-region))
+
+;; Multiple cursors
+(use-package multiple-cursors
+  :bind (("C-S-c C-S-c" . mc/edit-lines)
+         ("C->"         . mc/mark-next-like-this)
+         ("C-<"         . mc/mark-previous-like-this)
+         ("C-c C-<"     . mc/mark-all-like-this)))
+
+;; Emacs Relay Chat
 (defvar erc-prompt (lambda () (concat "[" (buffer-name) "]")))
 (defvar erc-fill-function 'erc-fill-static)
 (defvar erc-fill-static-center 20)
 (defvar erc-rename-buffers t)
 (defvar erc-interpret-mirc-color t)
-
-(defun erc-connect ()
-  "Connect to LiberaChat."
-  (interactive)
-  (erc-tls :server "irc.libera.chat" :port 6697
-           :nick "fuzzypixelz"
-           :password (read-passwd "Password: ")))
 
 ;; Dial it down!
 (setq gc-cons-threshold (* 100 1000))
@@ -586,5 +418,207 @@
 (set-terminal-coding-system 'utf-8)
 (set-keyboard-coding-system 'utf-8)
 
-;; Other keybindings
+;; macOS things
+(setq ns-alternate-modifier 'meta)
+(setq ns-right-alternate-modifier 'none)
+(setq mouse-wheel-scroll-amount '(1
+                                  ((shift) . 5)
+                                  ((control))))
+
+(defun fp/set-frame-size-and-position ()
+  "Set my preferred frame size and position."
+  (interactive)
+  (when window-system
+    (set-frame-size (selected-frame) 123 43)
+    (modify-frame-parameters nil '((user-position . t) (top . 0.5) (left . 0.5)))))
+
+(defun fp/eval-and-replace ()
+  "Replace the preceding sexp with its value."
+  (interactive)
+  (let ((value (eval (elisp--preceding-sexp))))
+    (backward-kill-sexp)
+    (insert (format "%S" value))))
+
+(defun fp/erc-connect ()
+  "Connect to LibraChat."
+  (interactive)
+  (erc-tls :server "irc.libera.chat" :port 6697
+           :nick "fuzzypixelz"
+           :password (read-passwd "Password: ")))
+
+(defun fp/reload-init-file ()
+  "Reload init.el without restarting Emacs."
+  (interactive)
+  (load user-init-file))
+
+(defun fp/show-super-agenda ()
+  "Display my weekly SUPER agenda ."
+  (interactive)
+  (let ((org-super-agenda-groups '((:name "📅 Today"
+                                          :date today)
+                                   (:name "⚠️ Overdue"
+                                          :and (:scheduled past :todo "TODO")
+                                          :deadline past)
+                                   (:name "☠️ Coming deadlines!"
+                                          :deadline t)
+                                   (:name "⏳ Work in progress ..."
+                                          :todo "PROG")
+                                   (:name "⏭️ NEXT in line?"
+                                          :todo "NEXT")
+                                   (:name "🛑 Things on hold"
+                                          :todo "HOLD"))))
+    (ignore org-super-agenda-groups)
+    (org-agenda-list)))
+
+(defun fp/dired-open-file ()
+  "Open a Dired filename in the default external program."
+  (interactive)
+  (when (eq major-mode 'dired-mode)
+    (let ((open (pcase system-type
+                 (`darwin "open")
+                 ((or `gnu `gnu/linux `gnu/kfreebsd) "xdg-open"))))
+      (call-process open nil 0 nil (with-no-warnings (dired-get-file-for-visit))))))
+
+(defun fp/backward-kill-line ()
+  "Kill line backwards and adjust the indentation."
+  (interactive)
+  (kill-line 0)
+  (indent-according-to-mode))
+
+;; From magnars
+(defun fp/rename-buffer-and-file ()
+  "Rename the current buffer and the file it is visiting."
+  (interactive)
+  (let ((name (buffer-name))
+        (filename (buffer-file-name)))
+    (if (not (and filename (file-exists-p filename)))
+        (error "Buffer '%s' is not visiting a file!" name)
+      (let ((new-name (read-file-name "New name: " filename)))
+        (if (get-buffer new-name)
+            (error "A buffer named '%s' already exists!" new-name)
+          (rename-file filename new-name 1)
+          (rename-buffer new-name)
+          (set-visited-file-name new-name)
+          (set-buffer-modified-p nil)
+          (message "File '%s' successfully renamed to '%s'"
+                   name (file-name-nondirectory new-name)))))))
+
+(defun fp/transpose-windows ()
+  "Transpose the buffers shown in two windows."
+  (interactive)
+  (let ((this-win (selected-window))
+        (this-buffer (window-buffer)))
+    (other-window 1)
+    (set-window-buffer this-win (current-buffer))
+    (set-window-buffer (selected-window) this-buffer)))
+
+(defun fp/switch-to-recent-buffer ()
+  "Switch to previously open buffer."
+  (interactive)
+  (switch-to-buffer nil))
+
+(defun fp/other-window-or-recent-buffer ()
+  "Call `other-window' if more than one window is visible.
+Switch to most recent buffer otherwise."
+  (interactive)
+  (if (one-window-p)
+      (switch-to-buffer nil)
+    (other-window 1)))
+
+(defun fp/open-line-below ()
+  "Open a line under the cursor."
+  (interactive)
+  (end-of-line)
+  (newline)
+  (indent-for-tab-command))
+
+(defun fp/open-line-above ()
+  "Open a line above the cursor."
+  (interactive)
+  (beginning-of-line)
+  (newline)
+  (forward-line -1)
+  (indent-for-tab-command))
+
+(defun fp/open-line-between ()
+  "Open a line by splitting the current line at point."
+  (interactive)
+  (newline)
+  (save-excursion
+    (newline)
+    (indent-for-tab-command))
+  (indent-for-tab-command))
+
+(defun fp/goto-last-change ()
+  "Move the point to where the last change happened."
+  (interactive)
+  (with-no-warnings
+    (undo-tree-undo)
+    (undo-tree-redo)))
+
+(defun fp/sync-theme-randomly ()
+  "Choose a random ef theme and apply it while respecting the current time."
+  (interactive)
+  (let* ((dark-themes  '(ef-night
+                         ef-bio
+                         ef-autumn
+                         ef-winter
+                         ef-dark
+                         ef-duo-dark
+                         ef-trio-dark
+                         ef-tritanopia-dark
+                         ef-deuteranopia-dark))
+         (light-themes '(ef-day
+                         ef-frost
+                         ef-spring
+                         ef-summer
+                         ef-light
+                         ef-duo-light
+                         ef-trio-light
+                         ef-tritanopia-light
+                         ef-deuteranopia-light))
+         ;; NOTE: decode-time returns (seconds minutes hour day month year dow dst utcoff)
+         (this-hour (nth 2 (decode-time)))
+         ;; FIXME: use proper sunrise and sunset times instead of the interval night = [18, 24] U [0, 6]
+         (late-hour (or (< this-hour 6) (>= this-hour 18)))
+         (themes (if late-hour dark-themes light-themes)))
+    (mapc #'disable-theme custom-enabled-themes)
+    (load-theme (nth (random (length themes)) themes) :no-confirm)))
+
+(defun fp/yank-quote-from-apple-books ()
+  "The macOS Books app add some shenanigans about Copyright to copy-pasted text."
+  (interactive)
+  (yank)
+  (dotimes (_ 6)
+    (kill-whole-line)
+    (forward-line -1))
+  (delete-char 1)
+  (move-end-of-line nil)
+  (delete-char -1)
+  (fill-paragraph))
+
+;; A few more useful configurations ...
+;; TODO: bind `duplicate-line` and `duplicate-dwim`
+(use-package emacs
+  :hook ((org-mode markdown-mode) . auto-fill-mode)
+  :bind (("C-c e"   . fp/eval-and-replace)
+         ("C-c r"   . fp/reload-init-file)
+         ("C-c a"   . fp/show-super-agenda)
+         ("C-c t"   . fp/sync-theme-randomly)
+         ("C-c f"   . fp/dired-open-file)
+         ("C-c k"   . fp/backward-kill-line)
+         ("C-c t"   . fp/transpose-windows)
+         ("C-c b"   . fp/switch-to-recent-buffer)
+         ("C-c o"   . fp/other-window-or-recent-buffer)
+         ("C-c p"   . fp/open-line-above)
+         ("C-c n"   . fp/open-line-below)
+         ("C-c RET" . fp/open-line-between)
+         ("C-c l"   . fp/goto-last-change)
+         ("C-c s"   . fp/sync-theme-randomly)
+         ("C-c c"   . fp/set-frame-size-and-position))
+  :config
+  (auto-revert-mode)
+  (fp/set-frame-size-and-position)
+  (fp/sync-theme-randomly))
+
 ;;; init.el ends here

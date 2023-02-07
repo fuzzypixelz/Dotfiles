@@ -28,11 +28,11 @@
    `(cursor
      ((t (:background ,peace-white))))
    '(fixed-pitch
-     ((t (:family "Iosevka Fira Code"
-          :height 120))))
+     ((t (:family "Iosevka"
+          :height 170))))
    `(variable-pitch
      ((t (:family "Finlandica"
-          :height 170))))
+          :height 180))))
    `(escape-glyph
      ((t (:foreground ,peace-blue))))
    `(homoglyph
@@ -104,7 +104,7 @@
      ((t (:background ,peace-black))))
    `(default
       ((t (:font "Iosevka"
-           :height 120
+           :height 140
            :extend nil
            :stipple nil
            :background ,peace-black
