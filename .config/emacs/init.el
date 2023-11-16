@@ -79,6 +79,9 @@
   (package-refresh-contents)
   (package-install 'use-package))
 
+;; Should be the default
+(setq debug-on-error t)
+
 (require 'use-package)
 (setq use-package-always-ensure t)
 (setq use-package-verbose t)
@@ -115,6 +118,9 @@
 ;; (load-theme 'peace t)
 (add-to-list 'default-frame-alist
              '(font . "Iosevka-14"))
+
+;; I said, go away!
+(setq revert-without-query '(".*org"))
 
 ;; Flash the modeline instead of beeping
 (setq visible-bell nil
@@ -172,7 +178,8 @@
   (setq dashboard-startup-banner 'logo)
   (setq dashboard-center-content t)
   (setq dashboard-banner-logo-title "Eight Megabytes and Constantly Swapping")
-  (setq dashboard-items '((agenda . 10)
+  (setq dashboard-items '((projects . 5)
+                          (bookmarks . 5)
                           (recents  . 5)))
   :config
   (dashboard-setup-startup-hook))
@@ -286,13 +293,31 @@
 
 ;; Completion Overlay Region Function
 (use-package corfu
-  :hook prog-mode
-  :config
+  :init
+  ;; TAB cycle if there are only few candidates
+  (setq completion-cycle-threshold 3)
+
+  ;; Emacs 28: Hide commands in M-x which do not apply to the current mode.
+  ;; Corfu commands are hidden, since they are not supposed to be used via M-x.
+  (setq read-extended-command-predicate
+        #'command-completion-default-include-p)
+
+  ;; Enable indentation+completion using the TAB key.
+  ;; `completion-at-point' is often bound to M-TAB.
+  (setq tab-always-indent 'complete)
   (global-corfu-mode))
 
 ;; Pretty TODO?
 (use-package hl-todo
-  :hook (prog-mode . hl-todo-mode))
+  :hook (prog-mode . hl-todo-mode)
+  :config
+  (setq hl-todo-keyword-faces '(("TODO" . "#cc9393")
+                                ("ONGOING" . "#7cb8bb")
+                                ("FAILED" . "#8c5353")
+                                ("DONE" . "#afd8af")
+                                ("NOTE" . "#d0bf8f")
+                                ("HACK" . "#d0bf8f")
+                                ("FIXME" . "#cc9393"))))
 
 ;; Modern on-the-fly syntax checking
 (use-package flycheck
@@ -317,43 +342,80 @@
 ;; Org
 (use-package org
   :init
-  (setq org-agenda-files '("~/Nextcloud/Organism")
+  (setq org-agenda-files '("~/Nextcloud/Organism" "~/Nextcloud/Organism/Journal")
         org-startup-indented t
         org-hide-emphasis-markers t
         org-src-tab-acts-natively t
         org-hide-leading-stars t
         org-pretty-entities t
         org-odd-levels-only t
-        org-todo-keywords '((sequence "TODO" "NEXT" "PROG" "HOLD" "|" "DONE" "FAIL"))
-        org-log-done 'time)
-  :config
-  (defun org-close-item ()
-    (interactive)
-    (org-todo "DONE"))
-  (visual-line-mode)
-  :bind ("C-c d" . org-close-item))
+        org-todo-keywords '((sequence "TODO" "ONGOING" "|" "DONE" "FAILED"))
+        org-log-done 'time
+        org-columns-default-format "%25ITEM %TODO %3PRIORITY %TAGS %LOCATION"
+        org-agenda-custom-commands
+        `(("A" "Daily agenda and top priority tasks"
+           ((todo "ONGOING"
+                       (; (org-agenda-skip-function '(org-agenda-skip-if nil '(timestamp)))
+                        (org-agenda-overriding-header "Ongoing tasks\n")))
+            (todo "TODO"
+                       ((org-agenda-skip-function '(org-agenda-skip-if nil '(timestamp)))
+                        (org-agenda-skip-function
+                         `(org-agenda-skip-entry-if 'notregexp "\\[#.\\]"))
+                        (org-agenda-overriding-header "Important unscheduled tasks\n")))
+            (agenda "" ((org-agenda-span 1)
+                        (org-deadline-warning-days 0)
+                        (org-scheduled-past-days 0)
+                        ;; We don't need the `org-agenda-date-today'
+                        ;; highlight because that only has a practical
+                        ;; utility in multi-day views.
+                        (org-agenda-day-face-function (lambda (date) 'org-agenda-date))
+                        (org-agenda-overriding-header "Today's agenda\n")))
+            (agenda "" ((org-agenda-start-on-weekday nil)
+                        (org-agenda-start-day "+1d")
+                        (org-agenda-span 5)
+                        (org-deadline-warning-days 0)
+                        (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                        (org-agenda-overriding-header "Next five days\n")))
+            (agenda "" ((org-agenda-time-grid nil)
+                        (org-agenda-start-on-weekday nil)
+                        ;; We don't want to replicate the previous section's
+                        ;; three days, so we start counting from the day after.
+                        (org-agenda-show-all-dates nil)
+                        (org-deadline-warning-days 30)
+                        (org-agenda-entry-types '(:deadline))
+                        (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                        (org-agenda-day-face-function (lambda (date) 'org-agenda-date))
+                        (org-agenda-overriding-header "Deadlines in the coming month\n")))
+            (agenda "" ((org-agenda-time-grid nil)
+                        (org-agenda-start-on-weekday nil)
+                        (org-agenda-show-all-dates nil)
+                        (org-agenda-format-date "")
+                        (org-agenda-span 1)
+                        (org-agenda-skip-function '(org-agenda-skip-entry-if 'todo 'done))
+                        (org-agenda-entry-types '(:scheduled))
+                        (org-scheduled-past-days 1337)
+                        (org-deadline-past-days 1337)
+                        ; (org-deadline-warning-days 0)
+                        (org-agenda-overriding-header "Overdue"))))))))
 
 (use-package org-modern
   :config
   (global-org-modern-mode))
-
-(use-package org-super-agenda
-  :config
-  (org-super-agenda-mode))
 
 (use-package org-journal
   :init
   ;; Change default prefix key; needs to be set before loading org-journal
   (setq org-journal-prefix-key "C-c j")
   (setq org-journal-file-type 'monthly)
-  (setq org-journal-encrypt-journal t)
-  ; NOTE: for some reason, `org-journal-new-entry` gets put under `C-c C-j` and
-  ; not `C-c j` so we might as well take advantage of that, eh?
-  :bind ("C-c j" . org-journal-new-scheduled-entry)
+  (setq org-journal-file-format "%Y-%m-%d.org")
   :config
-  (setq org-journal-enable-agenda-integration t)
+  ; (setq org-journal-enable-agenda-integration t)
   (setq org-journal-dir "~/Nextcloud/Organism/Journal/"
-        org-journal-date-format "%A, %d %B %Y"))
+        org-journal-date-format "%A, %d %B %Y"
+        org-journal-enable-agenda-integration t
+        org-journal-carryover-items nil))
+
+(use-package ob-fsharp)
 
 ;; Zig
 (use-package zig-mode :defer t)
@@ -450,25 +512,6 @@
   "Reload init.el without restarting Emacs."
   (interactive)
   (load user-init-file))
-
-(defun fp/show-super-agenda ()
-  "Display my weekly SUPER agenda ."
-  (interactive)
-  (let ((org-super-agenda-groups '((:name "📅 Today"
-                                          :date today)
-                                   (:name "⚠️ Overdue"
-                                          :and (:scheduled past :todo "TODO")
-                                          :deadline past)
-                                   (:name "☠️ Coming deadlines!"
-                                          :deadline t)
-                                   (:name "⏳ Work in progress ..."
-                                          :todo "PROG")
-                                   (:name "⏭️ NEXT in line?"
-                                          :todo "NEXT")
-                                   (:name "🛑 Things on hold"
-                                          :todo "HOLD"))))
-    (ignore org-super-agenda-groups)
-    (org-agenda-list)))
 
 (defun fp/dired-open-file ()
   "Open a Dired filename in the default external program."
@@ -597,13 +640,36 @@ Switch to most recent buffer otherwise."
   (delete-char -1)
   (fill-paragraph))
 
+(defun fp/create-journal-entry ()
+  "Create a new Org Journal TODO entry in the non-encrypted journal."
+  (interactive)
+  (let ((org-journal-dir "~/Nextcloud/Organism/Journal/")
+        (org-journal-encrypt-journal nil))
+    (org-journal-new-entry nil)))
+
+(defun fp/create-diary-entry ()
+  "Create a new Org Journal regular entry in the encrypted diary."
+  (interactive)
+  (let ((org-journal-dir "~/Nextcloud/Organism/Diary/")
+        (org-journal-encrypt-journal t))
+    (org-journal-new-entry nil)))
+
+(defun fp/open-org-agenda ()
+  "Launch the A command in `org-agenda`."
+  (interactive)
+  (cl-letf (((symbol-function 'y-or-n-p) (lambda (&rest _) t)))
+    (with-no-warnings
+      (org-save-all-org-buffers)
+      (org-revert-all-org-buffers)
+      (org-agenda nil "A"))))
+
 ;; A few more useful configurations ...
 ;; TODO: bind `duplicate-line` and `duplicate-dwim`
 (use-package emacs
   :hook ((org-mode markdown-mode) . auto-fill-mode)
   :bind (("C-c e"   . fp/eval-and-replace)
          ("C-c r"   . fp/reload-init-file)
-         ("C-c a"   . fp/show-super-agenda)
+         ("C-c a"   . fp/open-org-agenda)
          ("C-c t"   . fp/sync-theme-randomly)
          ("C-c f"   . fp/dired-open-file)
          ("C-c k"   . fp/backward-kill-line)
@@ -615,10 +681,20 @@ Switch to most recent buffer otherwise."
          ("C-c RET" . fp/open-line-between)
          ("C-c l"   . fp/goto-last-change)
          ("C-c s"   . fp/sync-theme-randomly)
-         ("C-c c"   . fp/set-frame-size-and-position))
+         ("C-c c"   . fp/set-frame-size-and-position)
+         ("C-c d"   . fp/create-diary-entry)
+         ("C-c j"   . fp/create-journal-entry))
   :config
   (auto-revert-mode)
   (fp/set-frame-size-and-position)
   (fp/sync-theme-randomly))
+
+(defun image-type-available-p (type)
+  "Return t if image type TYPE is available.
+Image types are symbols like `xbm' or `jpeg'."
+  (if (eq 'svg type)
+      nil
+    (and (fboundp 'init-image-library)
+         (init-image-library type))))
 
 ;;; init.el ends here
